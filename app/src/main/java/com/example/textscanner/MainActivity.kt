@@ -1,6 +1,8 @@
 package com.example.textscanner
 
 import android.app.Activity
+import android.app.AlertDialog
+import android.app.ProgressDialog
 import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -19,6 +21,10 @@ import androidx.annotation.ContentView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.TextRecognizer
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.time.temporal.ValueRange
 import java.util.jar.Manifest
 
@@ -41,6 +47,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var cameraPermission:Array<String>
     private lateinit var storagePermission:Array<String>
 
+    //for progress dialog
+    private lateinit var progressDialog: ProgressDialog
+
+    //for text recognizer
+    private lateinit var textRecognizer : TextRecognizer
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,9 +67,27 @@ class MainActivity : AppCompatActivity() {
         cameraPermission = arrayOf(android.Manifest.permission.CAMERA,android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
         storagePermission = arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE)
 
+        //init text recognizer
+        textRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+
         //handle click, showing input image dialog
         inputImageBtn.setOnClickListener {
             showInputImageDialog()
+        }
+
+        //progress dialog
+        progressDialog = ProgressDialog(this)
+        progressDialog.setTitle("Please wait...!")
+        progressDialog.setCanceledOnTouchOutside(false)
+
+        //setting recognition button
+        recognizeTextBtn.setOnClickListener {
+            if(imageUri == null){
+                Toast.makeText(this,"Pick image first...!",Toast.LENGTH_SHORT).show()
+            }
+            else{
+                recognizeTextFromImage()
+            }
         }
     }
 
@@ -171,12 +200,37 @@ class MainActivity : AppCompatActivity() {
                     }
                     else{
                         Toast.makeText(this,"storage permission is required...!",Toast.LENGTH_SHORT).show()
-
                     }
                 }
             }
         }
+    }
 
+    //function for text recognition
+    private fun recognizeTextFromImage(){
+        //set message and show progress dialog
+        progressDialog.setMessage("Preparing Image...Please wait....")
+        progressDialog.show()
+
+        try{
+            val inputImage = InputImage.fromFilePath(this,imageUri!!)
+            progressDialog.setMessage("Recognizing text...!")
+            val textTaskResult = textRecognizer.process(inputImage)
+                .addOnSuccessListener {text ->
+                    progressDialog.dismiss()
+                    //getting recognized text
+                    val recognizedText = text.text
+                    //set the recognized text to edit text
+                    recognizedTextEt.setText(recognizedText)
+            }
+                .addOnFailureListener {e->
+                    progressDialog.dismiss()
+                    Toast.makeText(this,"Failed to recognize image due to ${e.message}",Toast.LENGTH_SHORT).show()
+                }
+        }catch(e:java.lang.Exception){
+            progressDialog.dismiss()
+            Toast.makeText(this,"Failed to prepare image due to ${e.message}",Toast.LENGTH_SHORT).show()
+        }
     }
 
 }
