@@ -1,12 +1,25 @@
 package com.example.textscanner
 
+import android.app.Activity
+import android.content.ContentValues
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.ImageDecoder.ImageInfo
 import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.provider.MediaStore
+import android.view.Menu
 import android.widget.EditText
 import android.widget.ImageView
+import android.widget.PopupMenu
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.ContentView
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
+import java.time.temporal.ValueRange
 import java.util.jar.Manifest
 
 class MainActivity : AppCompatActivity() {
@@ -49,7 +62,120 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    //using all permissions here
     private fun showInputImageDialog(){
+        val popupMenu = PopupMenu(this,inputImageBtn)
+        popupMenu.menu.add(Menu.NONE,1,1,"CAMERA")
+        popupMenu.menu.add(Menu.NONE,2,2,"GALLERY")
+        popupMenu.show()
+        popupMenu.setOnMenuItemClickListener { menuItem ->
+            val id = menuItem.itemId
+            if(id ==1){
+                //if camera is clicked,check if camera permissions are granted or not
+                if(checkCameraPermission()){
+                    pickImageCamera()
+                }
+                else{
+                    requestCameraPermission()
+                }
+            }
+            else if(id == 2){
+                //if gallery button is clicked,check if gallery permissions are granted or not
+                if(checkStoragePermission()){
+                    pickImageGallery()
+                }
+                else{
+                    requestStoragePermission()
+                }
+            }
+            return@setOnMenuItemClickListener true
+        }
+    }
+
+    //to store the taken image in mediastore
+    private fun pickImageCamera(){
+        val values = ContentValues()
+        values.put(MediaStore.Images.Media.TITLE,"Sample Title")
+        values.put(MediaStore.Images.Media.DESCRIPTION,"Sample Description")
+
+        imageUri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+        val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+        intent.putExtra(MediaStore.EXTRA_OUTPUT,imageUri)
+        cameraActivityResultLauncher.launch(intent)
+    }
+    private fun pickImageGallery(){
+        val intent = Intent(Intent.ACTION_PICK)
+        intent.type = "image/*"
+        galleryActivityResultLauncger.launch(intent)
+    }
+    private val galleryActivityResultLauncger =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()){ result ->
+            if(result.resultCode == Activity.RESULT_OK){
+                val data = result.data
+                imageUri = data!!.data
+
+                imageIv.setImageURI(imageUri)
+            }
+            else{
+                Toast.makeText(this,"Cancelled....!",Toast.LENGTH_SHORT).show()
+            }
+        }
+    private val cameraActivityResultLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()){result ->
+            if(result.resultCode == Activity.RESULT_OK){
+                imageIv.setImageURI(imageUri)
+            }
+            else{
+                Toast.makeText(this,"Cancelled...!",Toast.LENGTH_SHORT).show()
+            }
+        }
+    private fun checkStoragePermission(): Boolean{
+        return ContextCompat.checkSelfPermission(this,android.Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+    }
+    private fun checkCameraPermission(): Boolean{
+        val cameraResult = ContextCompat.checkSelfPermission(this,android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        val storageResult = ContextCompat.checkSelfPermission(this,android.Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+        return cameraResult && storageResult
+    }
+    private fun requestStoragePermission(){
+        ActivityCompat.requestPermissions(this,storagePermission, STORAGE_REQUEST_CODE)
+    }
+    private fun requestCameraPermission(){
+        ActivityCompat.requestPermissions(this,cameraPermission, CAMERA_REQUEST_CODE)
+    }
+    //handles permission(s) result
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        when(requestCode){
+            CAMERA_REQUEST_CODE ->{
+                if(grantResults.isNotEmpty()){
+                    val cameraAccepted = grantResults[0] == PackageManager.PERMISSION_GRANTED
+                    val storageAccepted = grantResults[1] == PackageManager.PERMISSION_GRANTED
+                    if(cameraAccepted && storageAccepted){
+                        pickImageCamera()
+                    }
+                    else{
+                        Toast.makeText(this,"camera and storage permissions are required...!",Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            STORAGE_REQUEST_CODE ->{
+                if(grantResults.isNotEmpty()){
+                    val storageAccepted = grantResults[1] == PackageManager.PERMISSION_GRANTED
+                    if(storageAccepted){
+                        pickImageGallery()
+                    }
+                    else{
+                        Toast.makeText(this,"storage permission is required...!",Toast.LENGTH_SHORT).show()
+
+                    }
+                }
+            }
+        }
 
     }
 
