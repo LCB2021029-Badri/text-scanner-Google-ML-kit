@@ -59,7 +59,7 @@ class MainActivity : AppCompatActivity() {
 
         //init UI attributes
         inputImageBtn = findViewById(R.id.inputImageBtn)
-        recognizedTextEt = findViewById(R.id.recognizeTextBtn)
+        recognizeTextBtn = findViewById(R.id.recognizeTextBtn)
         imageIv = findViewById(R.id.imageIv)
         recognizedTextEt = findViewById(R.id.recognizedTextEt)
 
